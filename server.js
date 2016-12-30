@@ -71,57 +71,74 @@ app.get('/scrape', function (req, res) {
         sciFaculty: [],
         tdiFaculty: []
     };
+    var previousName = '';
+    var previousNumber = 0;
     var index = -1;
 
     var facultyQueue = async.queue(function (task, done) {
         request(rootUrl + task.faculty + subjectsListUrl, function (error, response, html) {
             if (error) return done(error);
             if (response.statusCode != 200) return done(response.statusCode);
+
             var $ = cheerio.load(html);
 
             var subjectQueue = async.queue(function (task, done) {
                 request(rootUrl + subjectUrl + task.number, function (error, response, html) {
                     if (error) return done(error);
                     if (response.statusCode != 200) return done(response.statusCode);
+
                     var $ = cheerio.load(html);
-                    index++;
 
                     $('.ie-images').filter(function () {
                         var data2 = $(this);
                         var name = data2.children().eq(0).text().replace(/^[0-9]*/, '').trim();
                         var number = task.number;
-                        var credits = data2.children().eq(1).text().trim();
-                        var h3List = data2.find('h3');
-                        var description = "";
-                        for (var i = 0; i < h3List.length; i++) {
-                            if (h3List.eq(i).text() === "Description") {
-                                description = h3List.eq(i).next().next().text().trim();
-                            }
-                        }
-                        var handbookLink = rootUrl + subjectUrl + subjectDetailsUrl + task.number;
 
-                        var subjectId = "sub" + index;
-                        json.utsSubjects[subjectId] = {
-                            "name": name,
-                            "number": number,
-                            "credits": credits,
-                            "description": description,
-                            "handbookLink": handbookLink
-                        };
+                        // Remove duplicate subjects
+                        if (name === previousName) {
+                            console.log('---- REMOVED SUBJECT ' + number + ' DUPLICATION OF ' + previousNumber + ' ----');
+                        } else {
 
-                        var facultySubjects = task.faculty + 'Faculty';
-                        json[facultySubjects].push(subjectId);
-
-                        fs.writeFile('output.json', JSON.stringify(json, null, 4), function (err) {
-                            if (!err) {
-                                console.log('faculty: ' + task.faculty + ' - subject: ' + number);
-                                if (task.faculty === 'ads' && task.subjectIndex === task.subjectLastIndex) {
-                                    console.log('COMPLETE.');
+                            previousName = name;
+                            previousNumber = number;
+                            index++;
+                            // may not want to use credits - Found two identical subjects with different credit points.
+                            var credits = data2.children().eq(1).text().trim();
+                            var h3List = data2.find('h3');
+                            var description = "";
+                            for (var i = 0; i < h3List.length; i++) {
+                                if (h3List.eq(i).text() === "Description") {
+                                    description = h3List.eq(i).next().next().text().trim();
                                 }
-                            } else {
-                                console.log('Something went wrong when writing to output.json :I');
                             }
-                        });
+                            var handbookLink = rootUrl + subjectUrl + subjectDetailsUrl + task.number;
+
+                            var subjectId = "sub" + index;
+                            json.utsSubjects[subjectId] = {
+                                "name": name,
+                                "number": number,
+                                "credits": credits,
+                                "description": description,
+                                "handbookLink": handbookLink
+                            };
+
+                            var facultySubjects = task.faculty + 'Faculty';
+                            if (facultySubjects === 'health-gemFaculty') {
+                                facultySubjects = 'healthGemFaculty';
+                            }
+                            json[facultySubjects].push(subjectId);
+
+                            fs.writeFile('output.json', JSON.stringify(json, null, 4), function (err) {
+                                if (!err) {
+                                    console.log('faculty: ' + task.faculty + ' - subject: ' + number);
+                                    if (task.faculty === 'tdi' && task.subjectIndex === task.subjectLastIndex) {
+                                        console.log('COMPLETE.');
+                                    }
+                                } else {
+                                    console.log('Something went wrong when writing to output.json :I');
+                                }
+                            });
+                        }
                     });
                     done();
                 });
@@ -142,20 +159,20 @@ app.get('/scrape', function (req, res) {
         });
     });
 
-    facultyQueue.push({faculty: 'ads'});
-    // facultyQueue.push({faculty: 'bus'});
-    // facultyQueue.push({faculty:'comm'});
-    // facultyQueue.push({faculty:'cii'});
-    // facultyQueue.push({faculty:'dab'});
-    // facultyQueue.push({faculty:'edu'});
-    // facultyQueue.push({faculty:'eng'});
-    // facultyQueue.push({faculty:'health'});
-    // facultyQueue.push({faculty:'health-gem'});
-    // facultyQueue.push({faculty:'it'});
-    // facultyQueue.push({faculty:'intl'});
-    // facultyQueue.push({faculty:'law'});
-    // facultyQueue.push({faculty:'sci'});
-    // facultyQueue.push({faculty:'tdi'});
+    facultyQueue.push({faculty: 'ads' });
+    // facultyQueue.push({faculty: 'bus' });
+    // facultyQueue.push({faculty: 'comm'});
+    // facultyQueue.push({faculty: 'cii'});
+    // facultyQueue.push({faculty: 'dab'});
+    // facultyQueue.push({faculty: 'edu'});
+    // facultyQueue.push({faculty: 'eng'});
+    // facultyQueue.push({faculty: 'health'});
+    // facultyQueue.push({faculty: 'health-gem'});
+    // facultyQueue.push({faculty: 'it'});
+    // facultyQueue.push({faculty: 'intl'});
+    // facultyQueue.push({faculty: 'law'});
+    // facultyQueue.push({faculty: 'sci'});
+    // facultyQueue.push({faculty: 'tdi'});
 
     res.send('Check your console!');
 
