@@ -48,32 +48,43 @@ var app = express();
  exports = module.exports = app;
  */
 
-
+// Let's save publicly available subjects data from the UTS website.
 app.get('/scrape', function (req, res) {
-    // Let's scrape UTS subjects from each faculty.
-
     const rootUrl = 'http://www.handbook.uts.edu.au/';
     const subjectsListUrl = '/lists/alpha';
     const subjectUrl = 'subjects/';
     const subjectDetailsUrl = 'details/';
-    var json = {utsSubjects : {}};
-    //var utsSubjects = {};
-    var index = 0;
+    var json = {
+        utsSubjects: {},
+        adsFaculty: [],
+        busFaculty: [],
+        commFaculty: [],
+        ciiFaculty: [],
+        dabFaculty: [],
+        eduFaculty: [],
+        engFaculty: [],
+        healthFaculty: [],
+        healthGemFaculty: [],
+        itFaculty: [],
+        intlFaculty: [],
+        lawFaculty: [],
+        sciFaculty: [],
+        tdiFaculty: []
+    };
+    var index = -1;
 
-    var q = async.queue(function (task, done) {
-
+    var facultyQueue = async.queue(function (task, done) {
         request(rootUrl + task.faculty + subjectsListUrl, function (error, response, html) {
             if (error) return done(error);
             if (response.statusCode != 200) return done(response.statusCode);
-
             var $ = cheerio.load(html);
 
             var subjectQueue = async.queue(function (task, done) {
                 request(rootUrl + subjectUrl + task.number, function (error, response, html) {
                     if (error) return done(error);
                     if (response.statusCode != 200) return done(response.statusCode);
-                    index++;
                     var $ = cheerio.load(html);
+                    index++;
 
                     $('.ie-images').filter(function () {
                         var data2 = $(this);
@@ -82,69 +93,74 @@ app.get('/scrape', function (req, res) {
                         var credits = data2.children().eq(1).text().trim();
                         var h3List = data2.find('h3');
                         var description = "";
-                        for ( var i = 0; i < h3List.length; i++ ) {
-                            if (h3List.eq(i).text() === "Description")  {
+                        for (var i = 0; i < h3List.length; i++) {
+                            if (h3List.eq(i).text() === "Description") {
                                 description = h3List.eq(i).next().next().text().trim();
                             }
                         }
                         var handbookLink = rootUrl + subjectUrl + subjectDetailsUrl + task.number;
 
                         var subjectId = "sub" + index;
-                        json.utsSubjects[subjectId] = {"name" : name, "number": number, "credits": credits, "description": description, "handbookLink" : handbookLink};
+                        json.utsSubjects[subjectId] = {
+                            "name": name,
+                            "number": number,
+                            "credits": credits,
+                            "description": description,
+                            "handbookLink": handbookLink
+                        };
+
+                        var facultySubjects = task.faculty + 'Faculty';
+                        json[facultySubjects].push(subjectId);
 
                         fs.writeFile('output.json', JSON.stringify(json, null, 4), function (err) {
-                            console.log('File successfully written! - Check your project directory for the output.json file');
+                            if (!err) {
+                                console.log('faculty: ' + task.faculty + ' - subject: ' + number);
+                                if (task.faculty === 'ads' && task.subjectIndex === task.subjectLastIndex) {
+                                    console.log('COMPLETE.');
+                                }
+                            } else {
+                                console.log('Something went wrong when writing to output.json :I');
+                            }
                         });
-
                     });
                     done();
-
                 });
             });
-
             $('.ie-images').filter(function () {
                 var data = $(this);
                 var subjectNumList = getFacultySubjectNumbers(data);
                 for (var j = 0; j < subjectNumList.length; j++) {
-                    console.log(subjectNumList[j]);
-                    subjectQueue.push({ number: subjectNumList[j] });
+                    subjectQueue.push({
+                        number: subjectNumList[j],
+                        faculty: task.faculty,
+                        subjectIndex: j,
+                        subjectLastIndex: subjectNumList.length - 1
+                    });
                 }
             });
-
-            // fs.writeFile('output.json', JSON.stringify(json, null, 4), function (err) {
-            //     console.log('File successfully written! - Check your project directory for the output.json file');
-            // });
-
             done();
-
         });
     });
 
-    q.push({ faculty: 'ads' });
-    q.push({faculty:'bus'});
-    // q.push({faculty:'comm'});
-    // q.push({faculty:'cii'});
-    // q.push({faculty:'dab'});
-    // q.push({faculty:'edu'});
-    // q.push({faculty:'eng'});
-    // q.push({faculty:'health'});
-    // q.push({faculty:'health-gem'});
-    // q.push({faculty:'it'});
-    // q.push({faculty:'intl'});
-    // q.push({faculty:'law'});
-    // q.push({faculty:'sci'});
-    // q.push({faculty:'tdi'});
+    facultyQueue.push({faculty: 'ads'});
+    // facultyQueue.push({faculty: 'bus'});
+    // facultyQueue.push({faculty:'comm'});
+    // facultyQueue.push({faculty:'cii'});
+    // facultyQueue.push({faculty:'dab'});
+    // facultyQueue.push({faculty:'edu'});
+    // facultyQueue.push({faculty:'eng'});
+    // facultyQueue.push({faculty:'health'});
+    // facultyQueue.push({faculty:'health-gem'});
+    // facultyQueue.push({faculty:'it'});
+    // facultyQueue.push({faculty:'intl'});
+    // facultyQueue.push({faculty:'law'});
+    // facultyQueue.push({faculty:'sci'});
+    // facultyQueue.push({faculty:'tdi'});
 
     res.send('Check your console!');
 
-
-
     function getFacultySubjectNumbers(data) {
-
-        //var data = getPageData($);
         var subjectNumList = [];
-
-
         var aList = data.find('a');
         for (var i = 0; i < aList.length; i++) {
             var val = aList.eq(i).text().trim();
@@ -155,31 +171,12 @@ app.get('/scrape', function (req, res) {
         return subjectNumList;
     }
 
-    function getPageData($) {
-        $('.ie-images').filter(function () {
-            return $(this);
-        });
-    }
-
     function isNumeric(val) {
         return !isNaN(parseFloat(val)) && isFinite(val);
     }
-
-    function getSubjectData(number) {
-
-        //TODO: This isn't getting the correct information if content is missing from the dom. Need to redo this - Find something that is like 'after().find('description').getNext()'
-
-        var data = getPageData();
-        var name = data.children().eq(0).text().trim();
-        var credits = data.children().eq(1).text().trim();
-        var type = data.children().eq(7).text().trim();
-        var description = data.children().eq(10).text().trim();
-        var handbookLink = rootUrl + subjectUrl + subjectDetailsUrl + number;
-    }
-
 });
 
-app.listen('8081')
+app.listen('8081');
 console.log('Magic happens on port 8081');
 exports = module.exports = app;
 
