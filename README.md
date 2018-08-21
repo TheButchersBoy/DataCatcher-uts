@@ -1,4 +1,5 @@
-node-web-scraper
+DataCatcher-uts
 ================
 
-Simple web scraper to get a movie name, release year and community rating from IMDB.
+A node web scraper to get UTS subject data from every subject, from every faculty.
+
