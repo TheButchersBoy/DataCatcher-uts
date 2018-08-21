@@ -1,12 +1,11 @@
 {
-  "name"         : "node-web-scrape",
-  "version"      : "0.0.1",
-  "description"  : "Scrape le web.",
+  "name"         : "DataCatcher-uts",
+  "version"      : "1.0.0",
   "main"         : "server.js",
-  "author"       : "Scotch",
+  "author"       : "TheButchersBoy",
   "repository"   : {
     "type" : "git",
-    "url"  : "https://github.com/scotch-io/node-web-scraper"
+    "url"  : "https://github.com/TheButchersBoy/DataCatcher-uts"
   },
   "dependencies" : {
     "express"    : "latest",
